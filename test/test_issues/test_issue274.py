@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 import pytest
 
 from rdflib import RDFS, XSD, BNode, Graph, Literal
@@ -21,14 +19,6 @@ NS = {
 
 def query(querystr, initNs=NS, initBindings=None):  # noqa: N803
     return G.query(querystr, initNs=initNs, initBindings=initBindings)
-
-
-def setup():
-    pass
-
-
-def teardown():
-    pass
 
 
 def test_cast_string_to_string():
@@ -170,23 +160,24 @@ def test_call_exf():
     eq_(len(list(res)), 0)
 
 
-class TestCustom(TestCase):
-    @staticmethod
+@pytest.fixture
+def registered_f():
     def f(x, y):
         return Literal("%s %s" % (x, y), datatype=XSD.string)
 
-    def setUp(self):
-        register_custom_function(EGDO.f, self.f)
+    register_custom_function(EGDO.f, f)
+    yield f
+    unregister_custom_function(EGDO.f, f)
 
-    def tearDown(self):
-        unregister_custom_function(EGDO.f, self.f)
 
-    def test_register_twice_fail(self):
-        with self.assertRaises(ValueError):
-            register_custom_function(EGDO.f, self.f)
+@pytest.mark.usefixtures("registered_f")
+class TestCustom:
+    def test_register_twice_fail(self, registered_f):
+        with pytest.raises(ValueError):
+            register_custom_function(EGDO.f, registered_f)
 
-    def test_register_override(self):
-        register_custom_function(EGDO.f, self.f, override=True)
+    def test_register_override(self, registered_f):
+        register_custom_function(EGDO.f, registered_f, override=True)
 
     def test_wrong_unregister_warns(self):
         with pytest.warns(UserWarning):
